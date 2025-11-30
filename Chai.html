@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chai-Wala Manager</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js for Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- jsPDF for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        chai: {
+                            100: '#FFF8E1',
+                            300: '#FFECB3',
+                            500: '#FFC107',
+                            600: '#FFB300',
+                            800: '#5D4037', 
+                            900: '#3E2723',
+                        }
+                    },
+                    animation: {
+                        'shake': 'shake 0.3s cubic-bezier(.36,.07,.19,.97) both',
+                        'pop': 'pop 0.2s ease-in-out',
+                    },
+                    keyframes: {
+                        shake: {
+                            '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                            '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                            '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                            '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
+                        },
+                        pop: {
+                            '0%': { transform: 'scale(1)' },
+                            '50%': { transform: 'scale(0.95)' },
+                            '100%': { transform: 'scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Mobile Optimizations */
+        body { -webkit-tap-highlight-color: transparent; user-select: none; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .touch-card:active { transform: scale(0.98); transition: transform 0.1s; }
+        
+        /* Layout Utilities */
+        #app-container { padding-bottom: 90px; }
+        .screen { display: none; animation: fadeIn 0.3s; }
+        .screen.active { display: block; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- 1. HEADER -->
+    <header class="bg-chai-800 text-white p-4 shadow-md flex justify-between items-center z-10">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-mug-hot text-chai-500 text-xl"></i>
+            <h1 class="text-xl font-bold tracking-wide">Chai-Wala</h1>
+        </div>
+        <div id="header-date" class="text-xs text-chai-300 font-mono"></div>
+    </header>
+
+    <!-- 2. MAIN CONTENT AREA -->
+    <main id="app-container" class="flex-1 overflow-y-auto hide-scrollbar p-4 relative">
+        
+        <!-- SCREEN: HOME (POS) -->
+        <div id="screen-home" class="screen active">
+            <div class="flex justify-between items-end mb-4">
+                <h2 class="text-lg font-bold text-stone-600">Quick Sale</h2>
+                <span class="text-xs text-gray-400 italic">Tap to sell • Long press to edit</span>
+            </div>
+            <div id="product-grid" class="grid grid-cols-2 gap-4">
+                <!-- Products injected here -->
+            </div>
+        </div>
+
+        <!-- SCREEN: KHATA (CREDIT) -->
+        <div id="screen-khata" class="screen">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-stone-600">Customer Khata</h2>
+                <button onclick="app.openModal('modal-add-customer')" class="bg-chai-600 text-white px-3 py-1 rounded-full text-sm shadow active:scale-95 transition-transform">
+                    <i class="fa-solid fa-plus"></i> New
+                </button>
+            </div>
+            <div id="customer-list" class="space-y-3">
+                <!-- Customers injected here -->
+            </div>
+        </div>
+
+        <!-- SCREEN: PRODUCTS (MANAGE) -->
+        <div id="screen-products" class="screen">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-stone-600">Menu Items</h2>
+                <button onclick="ProductsModule.openAddModal()" class="bg-chai-600 text-white px-3 py-1 rounded-full text-sm shadow active:scale-95 transition-transform">
+                    <i class="fa-solid fa-plus"></i> Add
+                </button>
+            </div>
+            <div id="manage-product-list" class="space-y-3">
+                <!-- Editable products injected here -->
+            </div>
+        </div>
+
+        <!-- SCREEN: REPORTS -->
+        <div id="screen-reports" class="screen">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-stone-600">Dashboard</h2>
+                <button onclick="ReportsModule.exportPDF()" class="bg-red-600 text-white px-3 py-1 rounded-full text-sm shadow flex items-center gap-2 active:scale-95 transition-transform">
+                    <i class="fa-solid fa-file-pdf"></i> PDF
+                </button>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                    <div class="text-xs text-gray-500">Today's Revenue</div>
+                    <div class="text-2xl font-bold text-gray-800" id="stat-revenue">₹0</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+                    <div class="text-xs text-gray-500">Items Sold</div>
+                    <div class="text-2xl font-bold text-gray-800" id="stat-count">0</div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
+                <canvas id="salesChart"></canvas>
+            </div>
+
+            <!-- Top Items -->
+            <h3 class="font-bold text-sm mb-2 text-stone-500">Top Selling Items</h3>
+            <ul id="top-selling-list" class="bg-white rounded-xl shadow-sm divide-y divide-gray-100"></ul>
+        </div>
+
+        <!-- SETTINGS (Reset) -->
+        <div id="screen-settings" class="screen">
+            <h2 class="text-lg font-bold text-stone-600 mb-4">Settings</h2>
+            <button onclick="DataStore.nuke()" class="w-full bg-red-100 text-red-600 py-3 rounded-xl font-bold border border-red-200 mb-4">
+                <i class="fa-solid fa-trash"></i> Reset All Data
+            </button>
+            <div class="bg-white p-4 rounded-xl shadow-sm">
+                <h3 class="font-bold text-sm mb-2">Debug Info</h3>
+                <div class="text-xs text-gray-500 font-mono" id="debug-info">Loading...</div>
+            </div>
+            <p class="text-xs text-center mt-8 text-gray-400">Chai-Wala Manager v1.2</p>
+        </div>
+
+    </main>
+
+    <!-- 3. BOTTOM NAVIGATION -->
+    <nav class="fixed bottom-0 left-0 w-full bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.05)] flex justify-around py-3 z-20 border-t border-gray-100 pb-safe">
+        <button class="nav-btn active flex flex-col items-center gap-1 w-1/5 text-chai-600" onclick="app.navigate('home')">
+            <i class="fa-solid fa-store text-xl"></i>
+            <span class="text-[10px] font-medium">Sale</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center gap-1 w-1/5 text-gray-400" onclick="app.navigate('khata')">
+            <i class="fa-solid fa-book text-xl"></i>
+            <span class="text-[10px] font-medium">Khata</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center gap-1 w-1/5 text-gray-400" onclick="app.navigate('products')">
+            <i class="fa-solid fa-tag text-xl"></i>
+            <span class="text-[10px] font-medium">Menu</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center gap-1 w-1/5 text-gray-400" onclick="app.navigate('reports')">
+            <i class="fa-solid fa-chart-pie text-xl"></i>
+            <span class="text-[10px] font-medium">Stats</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center gap-1 w-1/5 text-gray-400" onclick="app.navigate('settings')">
+            <i class="fa-solid fa-gear text-xl"></i>
+            <span class="text-[10px] font-medium">Set</span>
+        </button>
+    </nav>
+
+    <!-- 4. MODALS -->
+    
+    <!-- Add/Edit Product Modal -->
+    <div id="modal-product" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 id="modal-prod-title" class="text-xl font-bold mb-4">Add Item</h3>
+            <input type="hidden" id="inp-prod-id">
+            <input id="inp-prod-name" type="text" placeholder="Item Name (e.g. Masala Chai)" class="w-full p-3 bg-gray-50 rounded-lg mb-3 border focus:outline-none focus:border-chai-500">
+            <input id="inp-prod-price" type="number" placeholder="Price (₹)" class="w-full p-3 bg-gray-50 rounded-lg mb-4 border focus:outline-none focus:border-chai-500">
+            
+            <div class="flex gap-2">
+                <button onclick="app.closeModal('modal-product')" class="flex-1 py-3 text-gray-500 font-bold bg-gray-100 rounded-lg">Cancel</button>
+                <button onclick="ProductsModule.save()" class="flex-1 py-3 bg-chai-600 text-white rounded-lg font-bold shadow-lg">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Confirm Delete Modal -->
+    <div id="modal-confirm-delete" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <div class="flex items-center gap-3 mb-3 text-red-600">
+                <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+                <h3 class="text-xl font-bold">Delete Item?</h3>
+            </div>
+            <p class="text-gray-600 mb-6 font-medium">Are you sure you want to remove this item from the menu? This cannot be undone.</p>
+            <div class="flex gap-3">
+                <button onclick="app.closeModal('modal-confirm-delete')" class="flex-1 py-3 text-gray-500 font-bold bg-gray-100 rounded-lg">No, Cancel</button>
+                <button onclick="ProductsModule.confirmDelete()" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold shadow-lg hover:bg-red-700">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Customer Modal -->
+    <div id="modal-add-customer" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 class="text-xl font-bold mb-4">New Customer</h3>
+            <input id="inp-cust-name" type="text" placeholder="Name" class="w-full p-3 bg-gray-50 rounded-lg mb-4 border focus:outline-none focus:border-chai-500">
+            <div class="flex gap-2">
+                <button onclick="app.closeModal('modal-add-customer')" class="flex-1 py-3 text-gray-500 font-bold bg-gray-100 rounded-lg">Cancel</button>
+                <button onclick="KhataModule.addCustomer()" class="flex-1 py-3 bg-chai-600 text-white rounded-lg font-bold shadow-lg">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaction Modal -->
+    <div id="modal-transaction" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 id="trans-cust-name" class="text-xl font-bold mb-1">Customer Name</h3>
+            <p class="text-sm text-gray-500 mb-4">Current Balance: <span id="trans-curr-bal" class="font-bold text-red-500">₹0</span></p>
+            
+            <input id="inp-trans-amount" type="number" placeholder="Amount (₹)" class="w-full p-3 bg-gray-50 rounded-lg mb-4 border focus:outline-none focus:border-chai-500 text-lg font-bold">
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="KhataModule.addTransaction('credit')" class="py-3 bg-red-100 text-red-700 rounded-lg font-bold border border-red-200">
+                    <i class="fa-solid fa-arrow-up"></i> Udhaar (Credit)
+                </button>
+                <button onclick="KhataModule.addTransaction('paid')" class="py-3 bg-green-100 text-green-700 rounded-lg font-bold border border-green-200">
+                    <i class="fa-solid fa-arrow-down"></i> Jama (Paid)
+                </button>
+            </div>
+            <button onclick="app.closeModal('modal-transaction')" class="w-full mt-4 py-2 text-gray-400 text-sm">Close</button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl z-[100] transition-opacity duration-300 opacity-0 pointer-events-none flex items-center gap-2">
+        <i class="fa-solid fa-check-circle text-green-400"></i>
+        <span id="toast-msg" class="font-medium text-sm">Action Successful</span>
+    </div>
+
+    <!-- 5. JAVASCRIPT LOGIC -->
+    <script>
+        /**
+         * ------------------------------------------------
+         * MODULE 1: Data Store (LocalStorage Service)
+         * ------------------------------------------------
+         */
+        const DataStore = {
+            DEFAULTS: {
+                products: [
+                    { id: 'p1', name: 'Cutting Chai', price: 12, color: 'bg-amber-100' },
+                    { id: 'p2', name: 'Full Chai', price: 20, color: 'bg-amber-200' },
+                    { id: 'p3', name: 'Coffee', price: 25, color: 'bg-stone-200' },
+                    { id: 'p4', name: 'Bun Maska', price: 30, color: 'bg-orange-100' },
+                    { id: 'p5', name: 'Samosa', price: 15, color: 'bg-yellow-100' },
+                    { id: 'p6', name: 'Cigarette', price: 18, color: 'bg-gray-200' }
+                ],
+                sales: [],
+                khata: {} 
+            },
+
+            init() {
+                if (!localStorage.getItem('cw_products')) {
+                    this.save('cw_products', this.DEFAULTS.products);
+                }
+                if (!localStorage.getItem('cw_sales')) {
+                    this.save('cw_sales', this.DEFAULTS.sales);
+                }
+                if (!localStorage.getItem('cw_khata')) {
+                    this.save('cw_khata', this.DEFAULTS.khata);
+                }
+            },
+
+            get(key) {
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : [];
+            },
+
+            save(key, data) {
+                localStorage.setItem(key, JSON.stringify(data));
+                this.updateDebug();
+            },
+
+            nuke() {
+                if(confirm("⚠ WARNING: This will delete ALL products, sales, and khata data forever.\n\nAre you sure?")) {
+                    localStorage.clear();
+                    location.reload();
+                }
+            },
+
+            updateDebug() {
+                const prodCount = this.get('cw_products').length;
+                const saleCount = this.get('cw_sales').length;
+                const khataCount = Object.keys(JSON.parse(localStorage.getItem('cw_khata') || '{}')).length;
+                
+                const el = document.getElementById('debug-info');
+                if(el) el.innerText = `Products: ${prodCount} | Sales: ${saleCount} | Customers: ${khataCount}`;
+            }
+        };
+
+        /**
+         * ------------------------------------------------
+         * MODULE 2: Utility & UI Helpers
+         * ------------------------------------------------
+         */
+        const Utils = {
+            uuid: () => Date.now().toString(36) + Math.random().toString(36).substr(2),
+            
+            formatCurrency: (num) => "₹" + parseFloat(num).toFixed(0),
+            
+            showToast: (msg) => {
+                const t = document.getElementById('toast');
+                document.getElementById('toast-msg').innerText = msg;
+                t.classList.remove('opacity-0', 'translate-y-[-20px]');
+                t.classList.add('opacity-100', 'translate-y-0');
+                setTimeout(() => {
+                    t.classList.remove('opacity-100', 'translate-y-0');
+                    t.classList.add('opacity-0', 'translate-y-[-20px]');
+                }, 2000);
+            }
+        };
+
+        /**
+         * ------------------------------------------------
+         * MODULE 3: Products & Sales Engine (FIXED CRUD)
+         * ------------------------------------------------
+         */
+        const ProductsModule = {
+            longPressTimer: null,
+            isLongPress: false,
+            pendingDeleteId: null, // NEW: Tracks ID for deletion modal
+
+            renderGrid() {
+                const products = DataStore.get('cw_products');
+                const container = document.getElementById('product-grid');
+                container.innerHTML = '';
+
+                products.forEach(p => {
+                    const btn = document.createElement('div');
+                    btn.className = `${p.color || 'bg-white'} p-4 rounded-2xl shadow-sm border border-black/5 flex flex-col items-start justify-between h-32 touch-card relative overflow-hidden select-none cursor-pointer active:scale-95 transition-transform duration-100`;
+                    
+                    btn.addEventListener('touchstart', (e) => this.handleTouchStart(e, p.id));
+                    btn.addEventListener('touchend', (e) => this.handleTouchEnd(e, p));
+                    btn.addEventListener('mousedown', (e) => this.handleTouchStart(e, p.id)); 
+                    btn.addEventListener('mouseup', (e) => this.handleTouchEnd(e, p));
+
+                    btn.innerHTML = `
+                        <div class="font-bold text-lg text-stone-800 leading-tight text-left pointer-events-none">${p.name}</div>
+                        <div class="bg-white/60 px-2 py-1 rounded-lg text-sm font-bold text-stone-900 border border-black/5 pointer-events-none">₹${p.price}</div>
+                        <i class="fa-solid fa-circle-plus absolute bottom-3 right-3 text-2xl text-stone-800/20 pointer-events-none"></i>
+                    `;
+                    container.appendChild(btn);
+                });
+            },
+
+            handleTouchStart(e, id) {
+                this.isLongPress = false;
+                this.longPressTimer = setTimeout(() => {
+                    this.isLongPress = true;
+                    if(navigator.vibrate) navigator.vibrate(100);
+                    this.openEditModal(id);
+                }, 600);
+            },
+
+            handleTouchEnd(e, product) {
+                clearTimeout(this.longPressTimer);
+                if (!this.isLongPress) {
+                    this.recordSale(product);
+                }
+            },
+
+            renderManageList() {
+                const products = DataStore.get('cw_products');
+                const container = document.getElementById('manage-product-list');
+                container.innerHTML = '';
+
+                if(products.length === 0) {
+                    container.innerHTML = '<div class="text-center text-gray-400 mt-4">No items found. Add one!</div>';
+                    return;
+                }
+
+                products.forEach((p) => {
+                    const div = document.createElement('div');
+                    div.className = "flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border-l-4 border-chai-300";
+                    div.innerHTML = `
+                        <div>
+                            <div class="font-bold text-stone-800">${p.name}</div>
+                            <div class="text-sm text-gray-500">₹${p.price}</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="ProductsModule.openEditModal('${p.id}')" class="bg-blue-50 text-blue-500 p-2 rounded-lg hover:bg-blue-100 transition-colors">
+                                <i class="fa-solid fa-pencil"></i>
+                            </button>
+                            <button onclick="ProductsModule.askDelete('${p.id}')" class="bg-red-50 text-red-500 p-2 rounded-lg hover:bg-red-100 transition-colors">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            },
+
+            recordSale(product) {
+                const sales = DataStore.get('cw_sales');
+                sales.push({
+                    id: Utils.uuid(),
+                    productId: product.id,
+                    productName: product.name,
+                    price: product.price,
+                    timestamp: Date.now()
+                });
+                DataStore.save('cw_sales', sales);
+                Utils.showToast(`Sold: ${product.name}`);
+                if(navigator.vibrate) navigator.vibrate(50);
+            },
+
+            openAddModal() {
+                document.getElementById('modal-prod-title').innerText = "Add Item";
+                document.getElementById('inp-prod-id').value = ""; 
+                document.getElementById('inp-prod-name').value = "";
+                document.getElementById('inp-prod-price').value = "";
+                app.openModal('modal-product');
+            },
+
+            openEditModal(id) {
+                const products = DataStore.get('cw_products');
+                const product = products.find(p => String(p.id) === String(id));
+                if (!product) return;
+
+                document.getElementById('modal-prod-title').innerText = "Edit Item";
+                document.getElementById('inp-prod-id').value = product.id; 
+                document.getElementById('inp-prod-name').value = product.name;
+                document.getElementById('inp-prod-price').value = product.price;
+                app.openModal('modal-product');
+            },
+
+            save() {
+                const id = document.getElementById('inp-prod-id').value;
+                const name = document.getElementById('inp-prod-name').value;
+                const price = parseFloat(document.getElementById('inp-prod-price').value);
+                
+                if (!name || isNaN(price)) return alert("Please fill valid name and price");
+
+                let products = DataStore.get('cw_products');
+
+                if (id) {
+                    const index = products.findIndex(p => String(p.id) === String(id));
+                    if (index > -1) {
+                        products[index].name = name;
+                        products[index].price = price;
+                        Utils.showToast("Item Updated");
+                    }
+                } else {
+                    products.push({
+                        id: Utils.uuid(),
+                        name,
+                        price,
+                        color: 'bg-white' 
+                    });
+                    Utils.showToast("Item Added");
+                }
+
+                DataStore.save('cw_products', products);
+                app.closeModal('modal-product');
+                this.renderManageList();
+                this.renderGrid();
+            },
+
+            // NEW: Step 1 - Open Confirmation Modal
+            askDelete(id) {
+                this.pendingDeleteId = id;
+                app.openModal('modal-confirm-delete');
+            },
+
+            // NEW: Step 2 - Execute Delete
+            confirmDelete() {
+                if(!this.pendingDeleteId) return;
+
+                let products = DataStore.get('cw_products');
+                products = products.filter(p => String(p.id) !== String(this.pendingDeleteId));
+                DataStore.save('cw_products', products);
+                
+                this.renderManageList();
+                this.renderGrid();
+                Utils.showToast("Item Deleted");
+                
+                this.pendingDeleteId = null;
+                app.closeModal('modal-confirm-delete');
+            }
+        };
+
+        /**
+         * ------------------------------------------------
+         * MODULE 4: Khata (Credit) Engine
+         * ------------------------------------------------
+         */
+        const KhataModule = {
+            activeCustomerId: null,
+
+            getKhata() {
+                const data = localStorage.getItem('cw_khata');
+                return data ? JSON.parse(data) : {};
+            },
+
+            renderList() {
+                const khata = this.getKhata();
+                const container = document.getElementById('customer-list');
+                container.innerHTML = '';
+                
+                if (Object.keys(khata).length === 0) {
+                    container.innerHTML = '<div class="text-center text-gray-400 mt-10">No customers yet</div>';
+                    return;
+                }
+
+                Object.keys(khata).forEach(key => {
+                    const cust = khata[key];
+                    const balance = this.calculateBalance(cust.transactions);
+                    const isPositive = balance > 0;
+
+                    const div = document.createElement('div');
+                    div.className = "bg-white p-4 rounded-xl shadow-sm flex justify-between items-center cursor-pointer active:bg-gray-50 border border-gray-100";
+                    div.onclick = () => this.openTransactionModal(key);
+                    
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center font-bold text-stone-600 border border-stone-300">
+                                ${cust.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="font-bold text-stone-800">${cust.name}</div>
+                                <div class="text-xs text-gray-400">${cust.transactions.length} Txns</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold text-lg ${isPositive ? 'text-red-500' : 'text-green-600'}">
+                                ${Utils.formatCurrency(balance)}
+                            </div>
+                            <div class="text-[10px] text-gray-400 uppercase tracking-wide">
+                                ${isPositive ? 'DUE' : 'CLEAR'}
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            },
+
+            addCustomer() {
+                const name = document.getElementById('inp-cust-name').value;
+                if (!name) return;
+
+                const khata = this.getKhata();
+                const id = Utils.uuid();
+                
+                khata[id] = {
+                    id: id,
+                    name: name,
+                    transactions: []
+                };
+
+                DataStore.save('cw_khata', khata);
+                app.closeModal('modal-add-customer');
+                document.getElementById('inp-cust-name').value = '';
+                this.renderList();
+                Utils.showToast("Customer Added");
+            },
+
+            calculateBalance(transactions) {
+                return transactions.reduce((acc, t) => {
+                    return t.type === 'credit' ? acc + t.amount : acc - t.amount;
+                }, 0);
+            },
+
+            openTransactionModal(custId) {
+                this.activeCustomerId = custId;
+                const khata = this.getKhata();
+                const cust = khata[custId];
+                const balance = this.calculateBalance(cust.transactions);
+
+                document.getElementById('trans-cust-name').innerText = cust.name;
+                document.getElementById('trans-curr-bal').innerText = Utils.formatCurrency(balance);
+                document.getElementById('inp-trans-amount').value = '';
+                app.openModal('modal-transaction');
+            },
+
+            addTransaction(type) {
+                const amount = parseFloat(document.getElementById('inp-trans-amount').value);
+                if (!amount || amount <= 0) return alert("Enter valid amount");
+
+                const khata = this.getKhata();
+                khata[this.activeCustomerId].transactions.push({
+                    id: Utils.uuid(),
+                    amount: amount,
+                    type: type,
+                    timestamp: Date.now()
+                });
+
+                DataStore.save('cw_khata', khata);
+                Utils.showToast(type === 'credit' ? 'Added Credit' : 'Payment Received');
+                app.closeModal('modal-transaction');
+                this.renderList();
+            }
+        };
+
+        /**
+         * ------------------------------------------------
+         * MODULE 5: Reports & PDF Engine
+         * ------------------------------------------------
+         */
+        const ReportsModule = {
+            chartInstance: null,
+
+            render() {
+                const sales = DataStore.get('cw_sales');
+                
+                const startOfDay = new Date();
+                startOfDay.setHours(0,0,0,0);
+                
+                const todaySales = sales.filter(s => s.timestamp >= startOfDay.getTime());
+                const totalRev = todaySales.reduce((sum, s) => sum + s.price, 0);
+                
+                document.getElementById('stat-revenue').innerText = Utils.formatCurrency(totalRev);
+                document.getElementById('stat-count').innerText = todaySales.length;
+
+                const productCounts = {};
+                sales.forEach(s => {
+                    productCounts[s.productName] = (productCounts[s.productName] || 0) + 1;
+                });
+                
+                const sortedProducts = Object.entries(productCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+
+                const list = document.getElementById('top-selling-list');
+                list.innerHTML = sortedProducts.map(([name, count]) => `
+                    <li class="p-3 flex justify-between text-sm">
+                        <span>${name}</span>
+                        <span class="font-bold text-stone-600">${count} sold</span>
+                    </li>
+                `).join('');
+
+                this.renderChart(sales);
+            },
+
+            renderChart(sales) {
+                const ctx = document.getElementById('salesChart').getContext('2d');
+                
+                const days = [];
+                const data = [];
+                
+                for(let i=6; i>=0; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const label = d.toLocaleDateString(undefined, {weekday:'short'});
+                    days.push(label);
+                    
+                    const start = new Date(d.setHours(0,0,0,0)).getTime();
+                    const end = new Date(d.setHours(23,59,59,999)).getTime();
+                    
+                    const dailyTotal = sales
+                        .filter(s => s.timestamp >= start && s.timestamp <= end)
+                        .reduce((acc, s) => acc + s.price, 0);
+                        
+                    data.push(dailyTotal);
+                }
+
+                if(this.chartInstance) this.chartInstance.destroy();
+
+                this.chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: days,
+                        datasets: [{
+                            label: 'Revenue (₹)',
+                            data: data,
+                            backgroundColor: '#FFB300',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { display: false } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            },
+
+            exportPDF() {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                doc.setFontSize(22);
+                doc.setTextColor(93, 64, 55);
+                doc.text("Chai-Wala Sales Report", 14, 20);
+                
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 26);
+
+                const sales = DataStore.get('cw_sales');
+                const totalRevenue = sales.reduce((a,b) => a + b.price, 0);
+                
+                doc.setFontSize(12);
+                doc.setTextColor(0);
+                doc.text(`Total Lifetime Sales: ${sales.length}`, 14, 40);
+                doc.text(`Total Lifetime Revenue: ${Utils.formatCurrency(totalRevenue)}`, 14, 46);
+
+                const tableData = sales.slice(-50).reverse().map(s => [
+                    new Date(s.timestamp).toLocaleDateString(),
+                    new Date(s.timestamp).toLocaleTimeString(),
+                    s.productName,
+                    s.price
+                ]);
+
+                doc.autoTable({
+                    startY: 55,
+                    head: [['Date', 'Time', 'Item', 'Price']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [255, 179, 0] },
+                });
+
+                doc.save('chai-wala-report.pdf');
+            }
+        };
+
+        /**
+         * ------------------------------------------------
+         * MODULE 6: App Controller (SPA Router)
+         * ------------------------------------------------
+         */
+        const app = {
+            init() {
+                DataStore.init();
+                DataStore.updateDebug();
+                document.getElementById('header-date').innerText = new Date().toLocaleDateString();
+
+                ProductsModule.renderGrid();
+                this.navigate('home');
+            },
+
+            navigate(screenId) {
+                document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+                document.getElementById(`screen-${screenId}`).classList.add('active');
+                
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.remove('text-chai-600', 'active');
+                    btn.classList.add('text-gray-400');
+                });
+                
+                const activeBtn = document.querySelector(`button[onclick="app.navigate('${screenId}')"]`);
+                if(activeBtn) {
+                    activeBtn.classList.remove('text-gray-400');
+                    activeBtn.classList.add('text-chai-600', 'active');
+                }
+
+                if (screenId === 'khata') KhataModule.renderList();
+                if (screenId === 'products') ProductsModule.renderManageList();
+                if (screenId === 'reports') ReportsModule.render();
+                if (screenId === 'home') ProductsModule.renderGrid();
+            },
+
+            openModal(id) {
+                document.getElementById(id).classList.remove('hidden');
+            },
+
+            closeModal(id) {
+                document.getElementById(id).classList.add('hidden');
+            }
+        };
+
+        // EXPOSE TO WINDOW for standard onclick handlers
+        window.DataStore = DataStore;
+        window.Utils = Utils;
+        window.ProductsModule = ProductsModule;
+        window.KhataModule = KhataModule;
+        window.ReportsModule = ReportsModule;
+        window.app = app;
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => app.init());
+
+    </script>
+</body>
+</html>
